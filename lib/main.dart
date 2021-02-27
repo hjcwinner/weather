@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(WeatherApp());
@@ -15,10 +16,13 @@ class WeatherApp extends StatefulWidget {
 
 class _WeatherAppState extends State<WeatherApp> {
   int temperature;
+  var minTemperatureForecast = new List(7);
+  var maxTemperatureForecast = new List(7);
   String location = 'seoul';
   int woeid = 1132599;
   String weather = 'clear';
   String abbrevation = "";
+  var abbrevationForecast = new List(7);
   String errorMessage = "";
 
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
@@ -34,6 +38,7 @@ class _WeatherAppState extends State<WeatherApp> {
   void initState() {
     super.initState();
     fetchLocation();
+    fetchLocationDay();
   }
 
   void fetchSearch(String input) async {
@@ -66,9 +71,30 @@ class _WeatherAppState extends State<WeatherApp> {
     });
   }
 
+  void fetchLocationDay() async {
+    var today = new DateTime.now();
+    for (var i = 0; i < 7; i++) {
+      var locationDayResult = await http.get(locationApiUrl +
+          woeid.toString() +
+          '/' +
+          new DateFormat('y/M/d')
+              .format(today.add(new Duration(days: i + 1)))
+              .toString());
+      var result = json.decode(locationDayResult.body);
+      var data = result[0];
+
+      setState(() {
+        minTemperatureForecast[i] = data['min_temp'].round();
+        maxTemperatureForecast[i] = data['max_temp'].round();
+        abbrevationForecast[i] = data['weather_state_abbr'];
+      });
+    }
+  }
+
   void onTextFieldSubmitted(String input) async {
     await fetchSearch(input);
     await fetchLocation();
+    await fetchLocationDay();
   }
 
   // void getLocation() async {
@@ -103,7 +129,6 @@ class _WeatherAppState extends State<WeatherApp> {
             "${place.locality}, ${place.postalCode}, ${place.country}";
       });
       onTextFieldSubmitted(place.locality);
-      print(place.locality);
     } catch (e) {
       print(e);
     }
@@ -116,9 +141,10 @@ class _WeatherAppState extends State<WeatherApp> {
         home: Container(
           decoration: BoxDecoration(
               image: DecorationImage(
-            image: AssetImage('images/$weather.png'),
-            fit: BoxFit.cover,
-          )),
+                  image: AssetImage('images/$weather.png'),
+                  fit: BoxFit.cover,
+                  colorFilter: new ColorFilter.mode(
+                      Colors.black.withOpacity(0.6), BlendMode.dstATop))),
           child: temperature == null
               ? Center(child: CircularProgressIndicator())
               : Scaffold(
@@ -137,65 +163,153 @@ class _WeatherAppState extends State<WeatherApp> {
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                   ),
-                  resizeToAvoidBottomInset: false,
+                  // resizeToAvoidBottomInset: false,
                   backgroundColor: Colors.transparent,
-                  body: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Column(
-                        children: [
-                          Center(
-                            child: Image.network(
-                              'https://www.metaweather.com/static/img/weather/png/' +
-                                  abbrevation +
-                                  '.png',
-                              width: 100,
+                  body: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Column(
+                          children: [
+                            Center(
+                              child: Image.network(
+                                'https://www.metaweather.com/static/img/weather/png/' +
+                                    abbrevation +
+                                    '.png',
+                                width: 100,
+                              ),
                             ),
-                          ),
-                          Center(
-                              child: Text(
-                            temperature.toString() + ' ℃',
-                            style: TextStyle(fontSize: 60, color: Colors.white),
-                          )),
-                          Center(
-                              child: Text(location,
-                                  style: TextStyle(
-                                      fontSize: 40, color: Colors.white)))
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          Container(
-                            width: 300,
-                            child: TextField(
-                              onSubmitted: (String input) {
-                                onTextFieldSubmitted(input);
-                              },
+                            Center(
+                                child: Text(
+                              temperature.toString() + ' ℃',
                               style:
-                                  TextStyle(color: Colors.white, fontSize: 25),
-                              decoration: InputDecoration(
-                                  hintText: '검색하고 싶은 도시를 입력하세요',
-                                  hintStyle: TextStyle(
-                                      color: Colors.white, fontSize: 18),
-                                  prefixIcon: Icon(
-                                    Icons.search,
-                                    color: Colors.white,
-                                  )),
-                            ),
+                                  TextStyle(fontSize: 60, color: Colors.white),
+                            )),
+                            Center(
+                                child: Text(location,
+                                    style: TextStyle(
+                                        fontSize: 40, color: Colors.white)))
+                          ],
+                        ),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              forecastElement(
+                                  1,
+                                  abbrevationForecast[0],
+                                  maxTemperatureForecast[0],
+                                  minTemperatureForecast[0]),
+                              forecastElement(
+                                  2,
+                                  abbrevationForecast[1],
+                                  maxTemperatureForecast[1],
+                                  minTemperatureForecast[1]),
+                              forecastElement(
+                                  3,
+                                  abbrevationForecast[2],
+                                  maxTemperatureForecast[2],
+                                  minTemperatureForecast[2]),
+                              forecastElement(
+                                  4,
+                                  abbrevationForecast[3],
+                                  maxTemperatureForecast[3],
+                                  minTemperatureForecast[3]),
+                              forecastElement(
+                                  5,
+                                  abbrevationForecast[4],
+                                  maxTemperatureForecast[4],
+                                  minTemperatureForecast[4]),
+                              forecastElement(
+                                  6,
+                                  abbrevationForecast[5],
+                                  maxTemperatureForecast[5],
+                                  minTemperatureForecast[5]),
+                              forecastElement(
+                                  7,
+                                  abbrevationForecast[6],
+                                  maxTemperatureForecast[6],
+                                  minTemperatureForecast[6]),
+                            ],
                           ),
-                          Text(
-                            errorMessage,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: Platform.isAndroid ? 15 : 20),
-                          )
-                        ],
-                      )
-                    ],
+                        ),
+                        Column(
+                          children: [
+                            Container(
+                              width: 300,
+                              child: TextField(
+                                onSubmitted: (String input) {
+                                  onTextFieldSubmitted(input);
+                                },
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 25),
+                                decoration: InputDecoration(
+                                    hintText: '검색하고 싶은 도시를 입력하세요',
+                                    hintStyle: TextStyle(
+                                        color: Colors.white, fontSize: 18),
+                                    prefixIcon: Icon(
+                                      Icons.search,
+                                      color: Colors.white,
+                                    )),
+                              ),
+                            ),
+                            Text(
+                              errorMessage,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: Platform.isAndroid ? 15 : 20),
+                            )
+                          ],
+                        )
+                      ],
+                    ),
                   ),
                 ),
         ));
   }
+}
+
+Widget forecastElement(
+    daysFormNow, abbrevation, maxTemperature, minTemperature) {
+  var now = new DateTime.now();
+  var oneDayFromNow = now.add(new Duration(days: daysFormNow));
+  return Padding(
+    padding: EdgeInsets.only(left: 16),
+    child: Container(
+      decoration: BoxDecoration(
+          color: Color.fromRGBO(205, 212, 228, 0.2),
+          borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              new DateFormat.E().format(oneDayFromNow),
+              style: TextStyle(color: Colors.white, fontSize: 25),
+            ),
+            Text(
+              new DateFormat.MMMd().format(oneDayFromNow),
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            ),
+            Image.network(
+              'https://www.metaweather.com/static/img/weather/png/' +
+                  abbrevation +
+                  '.png',
+              width: 50,
+            ),
+            Text(
+              '최대기온' + maxTemperature.toString() + ' ℃',
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            ),
+            Text(
+              '최저기온' + minTemperature.toString() + ' ℃',
+              style: TextStyle(color: Colors.white, fontSize: 20),
+            )
+          ],
+        ),
+      ),
+    ),
+  );
 }
